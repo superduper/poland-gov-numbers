@@ -1,13 +1,13 @@
 name:                poland-gov-numbers
 version:             0.1.0.0
-synopsis:            Initial project template from stack
+synopsis:            Poland Government Registry Numbers
 description:         Please see README.md
 homepage:            https://github.com/superduper/poland-gov-numbers#readme
 license:             BSD3
 license-file:        LICENSE
 author:              Viktor Miroshnikov
-maintainer:          example@example.com
-copyright:           2016 Author name here
+maintainer:          me@vmiroshnikov.com
+copyright:           2016 Viktor Miroshnikov
 category:            Data
 build-type:          Simple
 -- extra-source-files:
