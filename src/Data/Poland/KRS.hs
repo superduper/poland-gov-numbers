@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Data.Poland.KRS (
-  KRS(..)
-, randomKRS
+    KRS(..)
+  , randomKRS
+  , parseKRS 
 ) where
 
 import System.Random
