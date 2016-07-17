@@ -1,20 +1,24 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Data.Poland.REGON (
-  REGON(..)
-, REGON9Base
-, REGON14Base
-, isValidREGON
-, checksumREGON9Base
-, checksumREGON14Base
-, randomREGON9
-, randomREGON14
-, parseREGON
+    REGON(..)
+  , REGON9Base
+  , REGON14Base
+  , isValidREGON
+  , checksumREGON9Base
+  , checksumREGON14Base
+  , randomREGON
+  , randomREGON9
+  , randomREGON14
+  , parseREGON
+  , regonParser
 ) where
 
 import System.Random
-import Text.ParserCombinators.ReadP
 import Data.Maybe
 import Data.Poland.Internal.Parse
+import Text.Parsec
+import Text.Parsec.Char
+import Control.Monad
 
 type REGON9Base = (Int, Int, Int, Int, Int, Int, Int, Int)
 type REGON14Base = (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)
@@ -29,22 +33,30 @@ instance Show REGON where
   show (REGON14 (n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13) sum) =
     mconcat $ show <$> [n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, sum]
 
-parseREGON :: ReadP REGON
-parseREGON =
-  do numbers <- munch isDigit
-     case (fromJust . asDigit) <$> numbers of
-       [n1, n2, n3, n4, n5, n6, n7, n8, n9] -> do
-         let reg = REGON9 (n1, n2, n3, n4, n5, n6, n7, n8) n9
-         if isValidREGON reg then return reg
-         else error "Invalid REGON9: checksum doesn't match"
-       [n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, sum] -> do
-         let reg = REGON14 (n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13) sum
-         if isValidREGON reg then return reg
-         else error "Invalid REGON14: checksum doesn't match"
-       otherwise -> error $ "Invalid REGON: invalid format, consumed character count: " ++ (show $ length otherwise)
-
 instance Read REGON where
-  readsPrec _ = readP_to_S parseREGON
+  readsPrec _ s = either (const []) (\p -> [(p, "")]) (parseREGON s)
+
+parseREGON :: String -> Either ParseError REGON
+parseREGON = runParser regonParser () "REGON.parseREGON input"
+
+
+regonParser :: Monad m => ParsecT String () m REGON
+regonParser = do
+  rawDigits <- countFromTo 9 14 digit
+  let intDigits = (fromJust . charDigitAsInt) <$> rawDigits
+  either parserFail return (toREGON intDigits)
+  where
+    toREGON :: [Int] -> Either String REGON
+    toREGON [n1, n2, n3, n4, n5, n6, n7, n8, n9] =
+         let reg = REGON9 (n1, n2, n3, n4, n5, n6, n7, n8) n9
+         in if isValidREGON reg then return reg
+            else Left "Invalid REGON9: checksum doesn't match"
+    toREGON [n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, sum] =
+         let reg = REGON14 (n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13) sum
+         in if isValidREGON reg then return reg
+            else Left "Invalid REGON14: checksum doesn't match"
+    toREGON _ = error "REGON.REGONParser: should never reach this point, pattern matching failed"
+
 
 -- | REGON checksum calculation
 --
@@ -134,3 +146,6 @@ randomREGON14 =
   in do base <- genBase
         return $ REGON14 base $ checksumREGON14Base base
 
+randomREGON :: IO REGON
+randomREGON = join $ (generators !!) <$> randomRIO (0, 1)
+  where generators = [randomREGON9, randomREGON14]

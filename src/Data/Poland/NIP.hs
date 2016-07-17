@@ -6,12 +6,14 @@ module Data.Poland.NIP (
 , isValidNIP
 , checksumNIPBase
 , randomNIP
+, parseNIP
 ) where
 
 import System.Random
 import Text.ParserCombinators.ReadP
 import Data.Maybe
 import Data.Poland.Internal.Parse
+import Text.Parsec
 
 type NIPBase = (Int, Int, Int, Int, Int, Int, Int, Int, Int)
 data NIP = NIP !NIPBase !Int deriving Eq
@@ -20,17 +22,20 @@ instance Show NIP where
   show (NIP (n1, n2, n3, n4, n5, n6, n7, n8, n9) sum) = mconcat $ show <$> [n1, n2, n3, n4, n5, n6, n7, n8, n9, sum]
 
 instance Read NIP where
-  readsPrec _ = readP_to_S parseNIP
+  readsPrec _ s = either (const []) (\p -> [(p, "")]) (parseNIP s)
 
-parseNIP :: ReadP NIP
-parseNIP =
-  do numbers <- munch isDigit
-     case (fromJust . asDigit) <$> numbers of
-       [n1, n2, n3, n4, n5, n6, n7, n8, n9, n10] -> do
-         let nip = NIP (n1, n2, n3, n4, n5, n6, n7, n8, n9) n10
-         if isValidNIP nip then return nip
-         else error "Invalid NIP: checksum doesn't match"
-       otherwise -> error $ "Invalid NIP: invalid format, consumed character count: " ++ (show $ length otherwise)
+parseNIP :: String -> Either ParseError NIP
+parseNIP = runParser nipParser () "NIP.parseNIP input"
+
+nipParser :: Monad m => ParsecT String () m NIP
+nipParser = digitParser 10 toNIP
+  where
+    toNIP :: [Int] -> Either String NIP
+    toNIP [n1, n2, n3, n4, n5, n6, n7, n8, n9, n10] =
+      let nip = NIP (n1, n2, n3, n4, n5, n6, n7, n8, n9) n10
+      in if isValidNIP nip then Right nip
+         else Left "checksum doesn't match"
+    toNIP _ = error "NIP.nipParser: should never reach this point, pattern matching failed"
 
 -- | NIP checksum calculation
 --

@@ -10,7 +10,7 @@ import Control.Exception (evaluate)
 import Data.Poland.KRS   (randomKRS, KRS(..))
 import Data.Poland.NIP   (randomNIP, NIP(..))
 import Data.Poland.PESEL (randomPESEL, PESEL(..), peselSex, Sex(..), peselDate)
-import Data.Poland.REGON (REGON(..), randomREGON9, randomREGON14)
+import Data.Poland.REGON (REGON(..), randomREGON9, randomREGON14, randomREGON)
 import Data.Time.Calendar
 
 
@@ -28,7 +28,7 @@ main = hspec $
                    , "950r2738r"
                    , "190r5216r"
                    , "012r9263r"]
-          let check r = evaluate (asKRS r) `shouldThrow` errorCall "Invalid KRS: invalid format, consumed character count: 3"
+          let check r = evaluate (asKRS r) `shouldThrow` errorCall "Prelude.read: no parse" -- "Invalid KRS: invalid format, consumed character count: 3"
           mapM_ check ks
 
       it "parses valid numbers" $ do
@@ -41,6 +41,11 @@ main = hspec $
 
     context "REGON" $ do
       let asRegon = read :: String -> REGON
+
+      prop "read . show is identity for any regon" $ monadicIO $ do
+        regon <- liftIO randomREGON
+        assert $ regon == (read $ show regon)
+
       prop "read . show is identity for regon9" $ monadicIO $ do
         regon9 <- liftIO randomREGON9
         assert $ regon9 == (read $ show regon9)
@@ -62,7 +67,7 @@ main = hspec $
                    , "95042738r"
                    , "19085216r"
                    , "01219263r"]
-          let check r = evaluate (asRegon r) `shouldThrow` errorCall "Invalid REGON: invalid format, consumed character count: 8"
+          let check r = evaluate (asRegon r) `shouldThrow` errorCall "Prelude.read: no parse" -- "Invalid REGON: invalid format, consumed character count: 8"
           mapM_ check rs
 
       it "parse fails on invalid checksums" $ do
@@ -70,7 +75,7 @@ main = hspec $
                     , "950427380"
                     , "190852160"
                     , "012192630"]
-          let check r = evaluate (asRegon r) `shouldThrow` errorCall "Invalid REGON9: checksum doesn't match"
+          let check r = evaluate (asRegon r) `shouldThrow` errorCall "Prelude.read: no parse" --"Invalid REGON9: checksum doesn't match"
           mapM_ check rs9
 
     context "NIP" $ do
@@ -79,7 +84,7 @@ main = hspec $
         nip <- liftIO randomNIP
         assert $ nip == (read $ show nip)
 
-      it "parse fails on invalid checksums" $ do
+      it "parse ok on valid checksums" $ do
           let ns = [ "2699361272"
                    , "1937155290"
                    , "6292472216"
@@ -92,7 +97,7 @@ main = hspec $
                    , "1937155200"
                    , "6292472206"
                    , "9948541709"]
-          let check n = evaluate (asNIP n) `shouldThrow` errorCall "Invalid NIP: checksum doesn't match"
+          let check n = evaluate (asNIP n) `shouldThrow` errorCall "Prelude.read: no parse" -- "Invalid NIP: checksum doesn't match"
           mapM_ check ns
 
     context "PESEL" $ do
@@ -129,5 +134,5 @@ main = hspec $
                    , "82020900952"
                    , "63021904832"
                    , "13321615652"]
-          let check p = evaluate (asPESEL p) `shouldThrow` errorCall "Invalid PESEL: checksum doesn't match"
+          let check p = evaluate (asPESEL p) `shouldThrow` errorCall "Prelude.read: no parse" -- "Invalid PESEL: checksum doesn't match"
           mapM_ check ps

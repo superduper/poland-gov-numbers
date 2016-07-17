@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Data.Poland.PESEL (
     PESEL(..)
   , Sex(..)
@@ -6,15 +7,15 @@ module Data.Poland.PESEL (
   , randomPESEL
   , peselDate
   , peselSex
+  , parsePESEL
 ) where
 
 import System.Random
-import Text.ParserCombinators.ReadP
 import Data.Maybe
 import Data.Either
 import Data.Time.Calendar
-
 import Data.Poland.Internal.Parse
+import Text.Parsec
 
 type PESELBase   = (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)
 
@@ -29,17 +30,20 @@ instance Show PESEL where
   show (PESEL (n1, n2, n3, n4, n5, n6) (n7, n8, n9, n10) sum) = mconcat $ show <$> [n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, sum]
 
 instance Read PESEL where
-  readsPrec _ = readP_to_S parsePESEL
+  readsPrec _ s = either (const []) (\p -> [(p, "")]) (parsePESEL s)
 
-parsePESEL :: ReadP PESEL
-parsePESEL =
-  do numbers <- munch isDigit
-     case (fromJust . asDigit) <$> numbers of
-       [n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11] -> do
-         let pesel = PESEL (n1, n2, n3, n4, n5, n6) (n7, n8, n9, n10) n11
-         if isValidPESEL pesel then return pesel
-         else error "Invalid PESEL: checksum doesn't match"
-       otherwise -> error $ "Invalid PESEL: invalid format, consumed character count: " ++ (show $ length otherwise)
+parsePESEL :: String -> Either ParseError PESEL
+parsePESEL = runParser peselParser () "PESEL.parsePESEL input"
+
+peselParser :: Monad m => ParsecT String () m PESEL
+peselParser = digitParser 11 toPesel
+  where
+    toPesel :: [Int] -> Either String PESEL
+    toPesel [n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11] =
+      let pesel = PESEL (n1, n2, n3, n4, n5, n6) (n7, n8, n9, n10) n11
+      in if isValidPESEL pesel then Right pesel
+         else Left "checksum doesn't match"
+    toPesel _ = error "PESEL.peselParser: should never reach this point, pattern matching failed"
 
 peselBase :: PESEL -> PESELBase
 peselBase (PESEL (n1, n2, n3, n4, n5, n6) (n7, n8, n9, n10) _) = (n1, n2, n3, n4, n5, n6, n7, n8, n9, n10)
